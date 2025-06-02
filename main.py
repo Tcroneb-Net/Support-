@@ -3,7 +3,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 from payment import generate_payment_link
 from utils import get_quote, get_tip, is_pro_user, upgrade_user
 
-BOT_TOKEN = 'YOUR_BOT_TOKEN_HERE'
+BOT_TOKEN = '7653249811:AAFOiZyPE4COoEl3EcEQFOQvVdbePjCSsfg'
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text("👋 Welcome! Use /poll to create a poll or /pro to become a professional developer.")
