@@ -35,8 +35,7 @@ bot.on('callback_query', async (query) => {
     bot.sendMessage(chatId, `💳 Pay with Litecoin to unlock Pro:
 ${invoice.invoice_url}`);
   } else if (data === 'dev') {
-    bot.sendMessage(chatId, '👨‍💻 Developer: @TCRONEB_HACKX
-Telegram: https://t.me/paidtechzone');
+    bot.sendMessage(chatId, '👨‍💻 Developer: @TCRONEB_HACKX');
   }
 });
 
