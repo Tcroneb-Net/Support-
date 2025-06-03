@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pro Bot Interface</title>
+  <style>
+    body {
+      background: #0f0f0f;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 20px;
+    }
+    .code-box {
+      background: #1e1e1e;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      font-size: 14px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      background: #5c5cff;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧠 Pro Bot: Code Generator</h1>
+  <p>Use the Telegram bot to generate, copy, and style code via Gemini AI.</p>
+  <div class="code-box" id="code-box">
+    Your generated code will appear here...
+  </div>
+  <button onclick="copyCode()">📋 Copy Code</button>
+
+  <script>
+    function copyCode() {
+      const code = document.getElementById("code-box").innerText;
+      navigator.clipboard.writeText(code).then(() => alert("Code copied!"));
+    }
+  </script>
+</body>
+</html>
