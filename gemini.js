@@ -15,7 +15,7 @@ async function generateResponse(text) {
   try {
     return data.candidates[0].content.parts[0].text;
   } catch {
-    return '❌ Error from Gemini AI';
+    return '❌ Gemini AI error or invalid API key.';
   }
 }
 
