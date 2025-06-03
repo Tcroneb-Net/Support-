@@ -1,12 +1,12 @@
 
 const proUsers = new Set();
 
-function activatePro(id) {
-  proUsers.add(id);
+function activatePro(userId) {
+  proUsers.add(userId);
 }
 
-function isPro(id) {
-  return proUsers.has(id);
+function isPro(userId) {
+  return proUsers.has(userId);
 }
 
 module.exports = { activatePro, isPro };
