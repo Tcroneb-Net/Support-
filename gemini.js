@@ -1,32 +1,28 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-require("dotenv").config();
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // or "gemini-pro" if available
-
-async function generateResponse(prompt) {
-  try {
-    const result = await model.generateContent({
+const response = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       contents: [
         {
           parts: [
-            { text: prompt }
-          ]
-        }
-      ]
-    });
-
-    // Extract generated text
-    const generatedText = result?.candidates?.[0]?.content;
-    if (!generatedText) {
-      throw new Error("No generated text found");
-    }
-
-    return generatedText.trim();
-  } catch (err) {
-    console.error("Error generating response:", err);
-    return "❌ Failed to generate response.";
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    }),
   }
-}
+);
 
-module.exports = { generateResponse };
+const data = await response.json();
+
+const reply =
+  data.candidates?.[0]?.content?.parts?.[0]?.text ||
+  "❌ No response from Gemini.";
+
+bot.sendMessage(chatId, `🤖 *Gemini AI Response:*\n\n${reply}`, {
+  parse_mode: "Markdown",
+});
