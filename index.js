@@ -1,84 +1,133 @@
-
+require('dotenv').config();
+const TelegramBot = require('node-telegram-bot-api');
+const fetch = require('node-fetch');
 const express = require('express');
 const app = express();
-const TelegramBot = require('node-telegram-bot-api');
-const { generateResponse } = require('./gemini');
-const { fancyFont } = require('./fonts');
-const { createInvoice } = require('./nowpayments');
-const { isPro, activatePro } = require('./proManager');
-require('dotenv').config();
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
+const userChannels = {}; // store user chatId => channel username
+
+// Start command
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, '🚀 Welcome to the Pro Bot! Choose an option:', {
+  bot.sendMessage(chatId, `👋 *Welcome to Gemini Joke Bot!*\n\n` +
+    `Use the button below or type /setchannel to add your channel username.\n\n` +
+    `🎯 Features:\n` +
+    `- Ask Gemini AI\n` +
+    `- Send Random Jokes to your channel\n` +
+    `- Log Fake Users\n` +
+    `- Check NowPayments Status\n`, {
+    parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [
-        [{ text: '💻 Generate Code', callback_data: 'code' }],
-        [{ text: '📋 Copy Code (Pro)', callback_data: 'copy' }],
-        [{ text: '💎 Upgrade to Pro', callback_data: 'pro' }],
-        [{ text: '👨‍💻 About Developer', callback_data: 'dev' }]
-      ]
+        [{ text: '📡 Set Channel Username', callback_data: 'set_channel' }],
+        [{ text: '🤖 Ask Gemini AI', callback_data: 'ask_gemini' }],
+        [{ text: '🤣 Send Random Joke', callback_data: 'send_joke' }],
+        [{ text: '🕵️‍♂️ Log Fake User', callback_data: 'fake_user' }],
+        [{ text: '💳 Check NowPayments Status', callback_data: 'check_payment' }],
+      ],
     }
   });
 });
 
+// Set channel username with command
+bot.onText(/\/setchannel (.+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const channel = match[1].trim();
+  if (!channel.startsWith('@')) {
+    return bot.sendMessage(chatId, '❌ Invalid channel username. It must start with @.');
+  }
+  userChannels[chatId] = channel;
+  bot.sendMessage(chatId, `✅ Your channel is set to *${channel}*`, { parse_mode: 'Markdown' });
+});
+
+// Handle button presses
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
 
-  if (data === 'code') {
-    bot.sendMessage(chatId, '✏️ Send a message starting with /code followed by your request.');
-  } else if (data === 'copy') {
-    bot.sendMessage(chatId, '🔐 Use /copy <your_code> to copy (Pro required).');
-  } else if (data === 'pro') {
-    const invoice = await createInvoice(chatId);
-    bot.sendMessage(chatId, `💳 Pay with Litecoin to unlock Pro:\n${invoice.invoice_url}`);
-  } else if (data === 'dev') {
-    bot.sendMessage(chatId, '👨‍💻 Developer: @TCRONEB_HACKX\nTelegram: https://t.me/paidtechzone');
-  }
-});
-
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text || '';
-
-  if (text.startsWith('/code ')) {
-    const query = text.slice(6);
-    const reply = await generateResponse(`Write JavaScript for: ${query}`);
-    const styled = fancyFont("Here is your code:");
-    bot.sendMessage(chatId, `💻 ${styled}\n\n<pre><code class="language-js">${reply}</code></pre>`, { parse_mode: 'HTML' });
-    return;
+  if (data === 'set_channel') {
+    bot.sendMessage(chatId, '📩 Please send your channel username starting with @ (e.g., @mychannel):');
+    bot.once('message', (msg) => {
+      const username = msg.text.trim();
+      if (!username.startsWith('@')) {
+        return bot.sendMessage(chatId, '❌ Invalid channel username. Must start with @.');
+      }
+      userChannels[chatId] = username;
+      bot.sendMessage(chatId, `✅ Channel set to *${username}*`, { parse_mode: 'Markdown' });
+    });
   }
 
-  if (text === '/pro') {
-    const invoice = await createInvoice(chatId);
-    bot.sendMessage(chatId, `💳 Pay with Litecoin to unlock Pro:\n${invoice.invoice_url}`);
-    return;
+  if (data === 'ask_gemini') {
+    bot.sendMessage(chatId, '💬 Send me the prompt for Gemini AI:');
+    bot.once('message', async (msg) => {
+      const prompt = msg.text;
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }]
+          }),
+        });
+        const data = await response.json();
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '❌ Gemini did not return a response.';
+        bot.sendMessage(chatId, `🤖 *Gemini AI Response:*\n\n${reply}`, { parse_mode: 'Markdown' });
+      } catch (err) {
+        bot.sendMessage(chatId, '❌ Error contacting Gemini API.');
+      }
+    });
   }
 
-  if (text.startsWith('/confirmpro')) {
-    activatePro(chatId);
-    bot.sendMessage(chatId, '✅ Pro Activated! You can now use all features.');
-    return;
-  }
-
-  if (text.startsWith('/copy ')) {
-    if (!isPro(chatId)) {
-      return bot.sendMessage(chatId, '🔒 You need Pro to use copy. Use /pro to upgrade.');
+  if (data === 'send_joke') {
+    const channel = userChannels[chatId];
+    if (!channel) {
+      return bot.sendMessage(chatId, '❗ Please set your channel username first with /setchannel or the button.');
     }
-    const code = text.slice(6);
-    bot.sendMessage(chatId, `📋 Copied:\n\n<pre><code class="language-js">${code}</code></pre>`, { parse_mode: 'HTML' });
-    return;
+    try {
+      const jokeRes = await fetch('https://official-joke-api.appspot.com/random_joke');
+      const joke = await jokeRes.json();
+      const jokeText = `🤣 *${joke.setup}*\n_${joke.punchline}_`;
+      await bot.sendMessage(channel, jokeText, { parse_mode: 'Markdown' });
+      bot.sendMessage(chatId, '✅ Joke sent to your channel!');
+    } catch {
+      bot.sendMessage(chatId, '❌ Failed to get/send joke.');
+    }
   }
 
-  if (!text.startsWith('/')) {
-    const aiComment = await generateResponse(`Give a short, clever reply to: "${text}"`);
-    bot.sendMessage(chatId, `💬 ${aiComment}`);
+  if (data === 'fake_user') {
+    const channel = userChannels[chatId];
+    if (!channel) {
+      return bot.sendMessage(chatId, '❗ Please set your channel username first with /setchannel or the button.');
+    }
+    try {
+      const userRes = await fetch('https://randomuser.me/api/');
+      const userData = await userRes.json();
+      const user = userData.results[0];
+      const userInfo = `🕵️ *Fake User Logged:*\n👤 ${user.name.first} ${user.name.last}\n📧 ${user.email}\n🌍 ${user.location.city}, ${user.location.country}`;
+      await bot.sendPhoto(channel, user.picture.large, { caption: userInfo, parse_mode: 'Markdown' });
+      bot.sendMessage(chatId, '✅ Fake user logged in your channel!');
+    } catch {
+      bot.sendMessage(chatId, '❌ Failed to log fake user.');
+    }
   }
+
+  if (data === 'check_payment') {
+    try {
+      const paymentRes = await fetch('https://api.nowpayments.io/v1/status', {
+        headers: { 'x-api-key': process.env.NOWPAYMENTS_API_KEY }
+      });
+      const paymentData = await paymentRes.json();
+      bot.sendMessage(chatId, `💳 *NowPayments Status:*\n${paymentData.message || 'Online'}`, { parse_mode: 'Markdown' });
+    } catch {
+      bot.sendMessage(chatId, '❌ Failed to get NowPayments status.');
+    }
+  }
+
+  bot.answerCallbackQuery(query.id);
 });
 
-// Web port to keep alive on Render
-app.get("/", (_, res) => res.send("Bot is running!"));
-app.listen(3000, () => console.log("Server running on port 3000"));
+// Express server to keep bot alive (for Render or similar)
+app.get('/', (_, res) => res.send('🤖 Gemini Joke Bot is running.'));
+app.listen(process.env.PORT || 3000, () => console.log('Bot is running on port', process.env.PORT || 3000));
